@@ -87,6 +87,10 @@ for i, var in enumerate(variables):
         legend=False
     )
     ax[i].set_title(f'Distribución: {var.replace("r1_", "").capitalize()}')
+    
+    ctx.add_basemap(ax[i], crs=gdf.crs.to_string(), source=ctx.providers.CartoDB.Positron)
+    
+
 
 # Ajustar espacio para dejar hueco abajo
 plt.subplots_adjust(bottom=0.15)
@@ -181,4 +185,39 @@ resultados = pd.DataFrame({
 
 # Exportar como archivo HTML
 resultados.to_html("resultados_espaciales.html", index=False)
+
+# Precios de compra por barrio
+idealista = gpd.read_file("/Users/user/projects/projects/EduSeg/data/precio-de-compra-en-idealista.geojson")
+
+idealista = idealista.set_crs('EPSG:25830', allow_override=True)
+
+
+# Map price y r1 caminble
+fig, ax = plt.subplots(figsize=(20, 20))
+
+# Capa 1: Precios de vivienda Idealista
+idealista.plot(
+    ax=ax,
+    column='precio_2022_euros_m2',
+    cmap='Blues',
+    markersize=10,
+    alpha=0.7
+)
+
+# Capa 2: r1_caminable sobre gdf (usando mismo eje)
+gdf.plot(
+    column='r1_caminable',
+    cmap=custom_cmap,
+    edgecolor="k",
+    linewidth=0.1,
+    norm=norm,
+    ax=ax,  # Corregido aquí
+    legend=False
+)
+
+# Título del mapa completo
+ax.set_title('Mapa de Precios de Vivienda Idealista + r1_caminable', fontsize=16)
+
+# Mostrar el mapa
+plt.show()
 
