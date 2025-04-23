@@ -25,7 +25,6 @@ pd.set_option('display.max_columns', None)
 # Load data
 data = gpd.read_file("/Users/user/projects/projects/EduSeg/data/loc2.geojson")
 
-print(data.head())
 
 data['r1_caminable']=pd.to_numeric(data['r1_caminable'], errors='raise')
 data['r1_bicicleta']=pd.to_numeric(data['r1_bicicleta'], errors='raise')
@@ -49,7 +48,7 @@ plt.show()
 
 summary = data.describe()
 # Exportar como archivo HTML
-summary.to_html("summary.html", index=False)
+'''summary.to_html("summary.html", index=False)'''
 
 # Map r1
 import matplotlib.colors as mcolors
@@ -107,7 +106,6 @@ cbar.ax.tick_params(labelsize=12)
 plt.show()
 
 # Spatal Weights
-
 
 w = weights.distance.Kernel.from_dataframe(
     gdf, fixed=False, k=16)
@@ -184,7 +182,7 @@ resultados = pd.DataFrame({
 })
 
 # Exportar como archivo HTML
-resultados.to_html("resultados_espaciales.html", index=False)
+'''resultados.to_html("resultados_espaciales.html", index=False)'''
 
 # Precios de compra por barrio
 idealista = gpd.read_file("/Users/user/projects/projects/EduSeg/data/precio-de-compra-en-idealista.geojson")
@@ -192,10 +190,9 @@ idealista = gpd.read_file("/Users/user/projects/projects/EduSeg/data/precio-de-c
 idealista = idealista.set_crs('EPSG:25830', allow_override=True)
 
 
-# Map price y r1 caminble
+# Map price
 fig, ax = plt.subplots(figsize=(20, 20))
 
-# Capa 1: Precios de vivienda Idealista
 idealista.plot(
     ax=ax,
     column='precio_2022_euros_m2',
@@ -203,21 +200,57 @@ idealista.plot(
     markersize=10,
     alpha=0.7
 )
+ax.set_title('Mapa de Precios de Vivienda Idealista', fontsize=16)
+plt.show()
 
-# Capa 2: r1_caminable sobre gdf (usando mismo eje)
-gdf.plot(
+# Load barrios poligons
+barris = gpd.read_file("/Users/user/projects/projects/EduSeg/data/barris-barrios.geojson")
+gdf = gdf.to_crs(barris.crs)
+
+# Spatial join para unir cada punto con su sección censal
+spatial_join = gpd.sjoin(gdf, barris, how='inner', predicate='within')
+
+# Agrupar por ID de sección (ajusta el nombre del ID de sección según tu caso)
+media_presion_por_seccion = spatial_join.groupby('coddistbar')['r1_caminable'].mean().reset_index()
+
+# Unir la media a las geometrías originales de las secciones
+gdf_resultado = barris.merge(media_presion_por_seccion, on='coddistbar', how='left')
+
+
+# Map r1 por Barrio
+
+# Calcular los centroides de los polígonos
+gdf_resultado['centroide'] = gdf_resultado.geometry.centroid
+
+# Crear el mapa
+fig, ax = plt.subplots(figsize=(20, 20))
+
+# Mapa base
+gdf_resultado.plot(
+    ax=ax,
     column='r1_caminable',
     cmap=custom_cmap,
     edgecolor="k",
     linewidth=0.1,
     norm=norm,
-    ax=ax,  # Corregido aquí
-    legend=False
+    legend=True
 )
 
-# Título del mapa completo
-ax.set_title('Mapa de Precios de Vivienda Idealista + r1_caminable', fontsize=16)
+# Añadir texto en los centroides (redondeado)
+for _, row in gdf_resultado.iterrows():
+    if not pd.isna(row['r1_caminable']):
+        x, y = row['centroide'].x, row['centroide'].y
+        ax.text(
+            x, y, 
+            f"{row['r1_caminable']:.1f}",  # con un decimal
+            fontsize=8,
+            ha='center',
+            va='center',
+            color='black',
+            alpha=0.7
+        )
 
-# Mostrar el mapa
+ax.set_title('Mapa de r1_caminable agrupado por barrio', fontsize=16)
 plt.show()
+
 
